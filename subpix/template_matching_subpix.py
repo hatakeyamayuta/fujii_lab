@@ -1,19 +1,21 @@
 import numpy as np
+import datetime
 import cv2
 import sys
 import time
 from RANSAC import ransac
 from plot import plot_3d
-m = 16
+m = 18
 
 def RANSAC(l,i,k):
     F = np.array(([-4.27949302458962e-06,9.65167261094930e-06,-0.0349853780456422],
                   [4.16571631974352e-05,-1.76320171777443e-05,0.386437272667093],
                   [0.0235509488713194,-0.394326349874653,-12.6136322246641]))
+
     t = np.array([i,l,1])
     t2 = np.array([k,l,1])
-    r = np.dot(t2.T,F)
-    r = np.dot(r,t)
+    r = np.dot(t,F)
+    r = np.dot(r,t2.T)
     return -r
 
 def SSD(r_array,l_array,l,i,k,m):
@@ -59,8 +61,8 @@ def sad_match():
     print("__start__","mask{0}".format(m))
     r_array,l_array,pos = read_stereo_img()
     y ,x = r_array.shape[:2]
-    for l in range(0,y-m,1):
-        for k in range(m,x-m,1):
+    for l in range(0,y-m,m):
+        for k in range(m,x-m,m):
             old =  2000
             for i in range(0,x-m):
                 if i == 0 or i ==  x-m:
@@ -75,10 +77,12 @@ def sad_match():
                             d = ((R_1-R1)/(2*R_1-2*t))
                         else:
                             d = -((R_1-R1)/(2*R1-2*t))
-                        if RANSAC(l,i,k) < 25:
+                        ran = RANSAC(l,i+d,k)
+                        print(ran**2)
+                        if ran**2 < 500:
                             dist = k - i + d
-                            #pos[l:l+m, k:k+m] =  dist
-                            pos[l, k] =  dist
+                            pos[l:l+m, k:k+m] =  dist
+                            #pos[l, k] =  dist
                             old = t
 
 
@@ -113,9 +117,13 @@ def template_match(key):
     #pos = ransac(pos)
     from PIL import Image
     plot_3d(pos)
-    Image.fromarray(np.uint8(pos)).save("stereo_gray.png")
+    Image.fromarray(np.uint8(pos)).save("stereo_gray{0}.png".format(datetime.date.today()))
     
     np.save("stereo_match",pos)
+
+def plot():
+    pos = np.load("stereo_match.npy")
+    return plot_3d(pos)
 
 
 
@@ -126,6 +134,8 @@ def main(key):
     elif key == "ZNCC":
         print("___ZNCC_match___")
         template_match(1)
+    elif key == "plot":
+        plot()
     else:
         print("__False_keyward__")
         exit()
